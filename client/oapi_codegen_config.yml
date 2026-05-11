@@ -1,0 +1,8 @@
+package: client
+# Path is relative to the directory `oapi-codegen` runs from. The Makefile
+# invokes the tool from `tools/`, so this path resolves to
+# `<repo-root>/client/client.gen.go`.
+output: ../client/client.gen.go
+generate:
+  client: true
+  models: true

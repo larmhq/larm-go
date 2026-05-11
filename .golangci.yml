@@ -1,0 +1,54 @@
+version: "2"
+
+linters:
+  enable:
+    - bodyclose
+    - errcheck
+    - errorlint
+    - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - noctx
+    - prealloc
+    - revive
+    - staticcheck
+    - tparallel
+    - unused
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Println
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (net/http.ResponseWriter).Write
+  exclusions:
+    generated: lax
+    rules:
+      # Generated client — exempt from all linters.
+      - path: client/client\.gen\.go
+        linters:
+          - bodyclose
+          - errcheck
+          - errorlint
+          - gocritic
+          - gosec
+          - govet
+          - ineffassign
+          - noctx
+          - prealloc
+          - revive
+          - staticcheck
+          - tparallel
+          - unused
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/larmhq/larm-go
