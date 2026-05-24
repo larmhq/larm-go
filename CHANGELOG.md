@@ -9,21 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - TBD
 
+Status pages now expose their groups and components as one ordered tree.
+This is a breaking shape change for `StatusPage` and removes the separate
+list endpoints for children.
+
 ### Added
 
-- `ReplaceStatusPageStructure` — atomic full-tree replace for a status page's groups, components, and monitor links. Takes the same shape `GetStatusPage` returns; nodes with an `id` are updated, nodes without are created, nodes missing from the payload are deleted.
-- Component group CRUD: `CreateComponentGroup`, `GetComponentGroup`, `UpdateComponentGroup`, `DeleteComponentGroup` under `/status-pages/{id}/component-groups`.
-- `make sync-spec` target — copies `apps/backend/priv/openapi.yaml` from the backend repo (override path with `LARM_BACKEND_REPO=...`) and regenerates `client.gen.go`. Was previously a manual `cp` + `make generate`.
+- `ReplaceStatusPageStructure` — atomic write of a status page's full tree.
+- `CreateComponentGroup` / `GetComponentGroup` / `UpdateComponentGroup` / `DeleteComponentGroup`.
 
 ### Changed
 
-- **Breaking**: `StatusPage.Components` is now a polymorphic ordered tree (`[]StatusPageTreeEntry` discriminated by `type = "group" | "component"`) instead of a flat list of `StatusPageComponentSummary`. Groups appear inline alongside ungrouped components, in display order; components inside a group are nested under the group entry's own `Components` field. Use the generated `AsStatusPageGroupEntry`/`AsStatusPageComponentEntry` helpers to discriminate.
-- `StatusPageSummary` is the new lighter type returned by `ListStatusPages`. It contains everything the previous `StatusPage` exposed except the components tree.
+- `StatusPage.Components` is now a polymorphic tree (`[]StatusPageTreeEntry` discriminated by `type`), with groups containing their components inline. `ListStatusPages` returns the new lighter `StatusPageSummary` (no tree).
 
 ### Removed
 
-- **Breaking**: `ListComponents` and `ListComponentGroups`. The components and groups for a status page are now returned in the tree on `GetStatusPage`; fetch the page instead of listing children separately.
-- **Breaking**: `StatusPageComponentSummary` model. Superseded by `StatusPageComponentEntry` inside the tree.
+- `ListComponents`, `ListComponentGroups`. Fetch the parent status page instead.
 
 ## [0.1.0] - TBD
 
