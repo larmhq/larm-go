@@ -1,4 +1,7 @@
-.PHONY: test test-race lint fmt clean generate check-generate vuln integration-test verify
+.PHONY: test test-race lint fmt clean generate check-generate sync-spec vuln integration-test verify
+
+# Override LARM_BACKEND_REPO to point at a different checkout.
+LARM_BACKEND_REPO ?= $(HOME)/workspace/larm
 
 # Tests run with the race detector on by default. Library, fast suite — race is
 # correct-by-default and CI catches concurrent-misuse regressions.
@@ -23,6 +26,12 @@ clean:
 generate:
 	cd tools && go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
 		-config ../client/oapi_codegen_config.yml ../api/openapi.yaml
+
+# Copy the OpenAPI spec from the backend and regenerate the client.
+# Run this after backend API changes; backend is the source of truth for openapi.yaml.
+sync-spec:
+	cp $(LARM_BACKEND_REPO)/apps/backend/priv/openapi.yaml api/openapi.yaml
+	$(MAKE) generate
 
 # CI check: generated code matches committed code.
 check-generate: generate

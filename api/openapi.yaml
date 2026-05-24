@@ -384,7 +384,7 @@ paths:
       summary: List status pages
       responses:
         "200":
-          description: List of status pages
+          description: List of status pages. The `components` tree is omitted from this summary; fetch a specific page to get its contents.
           content:
             application/json:
               schema:
@@ -394,7 +394,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: "#/components/schemas/StatusPage"
+                      $ref: "#/components/schemas/StatusPageSummary"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -493,17 +493,34 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  # ── Components ────────────────────────────────────────────────────────
-  /status-pages/{status_page_id}/components:
-    get:
-      operationId: listComponents
-      tags: [Components]
-      summary: List components for a status page
+  /status-pages/{id}/structure:
+    put:
+      operationId: replaceStatusPageStructure
+      tags: [Status Pages]
+      summary: Replace the full structure (groups + components + monitors) of a status page
+      description: |
+        Atomically replaces the entire structure of a status page. The request body has
+        the same shape as the `components` array on `GET /status-pages/{id}`. Each entry
+        may include an `id` (existing row will be updated) or omit it (new row will be
+        created). Entries present in the DB but missing from the payload are deleted.
+        Positions are derived from array order; explicit `position` values are ignored.
       parameters:
-        - $ref: "#/components/parameters/StatusPageId"
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [components]
+              properties:
+                components:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/StatusPageStructureEntry"
       responses:
         "200":
-          description: List of components
+          description: Structure replaced; returns the updated status page tree.
           content:
             application/json:
               schema:
@@ -511,14 +528,16 @@ paths:
                 required: [data]
                 properties:
                   data:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Component"
+                    $ref: "#/components/schemas/StatusPage"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
 
+  # ── Components ────────────────────────────────────────────────────────
+  /status-pages/{status_page_id}/components:
     post:
       operationId: createComponent
       tags: [Components]
@@ -614,6 +633,108 @@ paths:
       responses:
         "204":
           description: Component deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Component groups ──────────────────────────────────────────────────
+  /status-pages/{status_page_id}/component-groups:
+    post:
+      operationId: createComponentGroup
+      tags: [Component Groups]
+      summary: Create a component group
+      parameters:
+        - $ref: "#/components/parameters/StatusPageId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComponentGroupInput"
+      responses:
+        "201":
+          description: Component group created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ComponentGroup"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /status-pages/{status_page_id}/component-groups/{id}:
+    get:
+      operationId: getComponentGroup
+      tags: [Component Groups]
+      summary: Get a component group
+      parameters:
+        - $ref: "#/components/parameters/StatusPageId"
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Component group details
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ComponentGroup"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      operationId: updateComponentGroup
+      tags: [Component Groups]
+      summary: Update a component group
+      parameters:
+        - $ref: "#/components/parameters/StatusPageId"
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComponentGroupInput"
+      responses:
+        "200":
+          description: Component group updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/ComponentGroup"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+    delete:
+      operationId: deleteComponentGroup
+      tags: [Component Groups]
+      summary: Delete a component group
+      parameters:
+        - $ref: "#/components/parameters/StatusPageId"
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Component group deleted. Linked components have their `component_group_id` set to null.
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1126,12 +1247,16 @@ components:
             properties:
               location:
                 type: string
+                description: |
+                  The probe's geographic region, e.g. `us-east`, `eu-central`.
+                  Probes within the same region (different data centers) are
+                  aggregated into a single entry.
               p95:
                 type: number
                 format: float
               checks:
                 type: integer
-          description: P95 response time per probe location
+          description: P95 response time per region
 
     MonitorCert:
       type: object
@@ -1199,7 +1324,7 @@ components:
           type: object
           description: Configuration object (structure varies by channel type)
 
-    StatusPage:
+    StatusPageSummary:
       type: object
       required: [id, name, slug, enabled, inserted_at, updated_at]
       properties:
@@ -1237,16 +1362,151 @@ components:
         url:
           type: string
           description: Computed public URL
-        components:
-          type: array
-          items:
-            $ref: "#/components/schemas/StatusPageComponentSummary"
         inserted_at:
           type: string
           format: date-time
         updated_at:
           type: string
           format: date-time
+
+    StatusPage:
+      allOf:
+        - $ref: "#/components/schemas/StatusPageSummary"
+        - type: object
+          required: [components]
+          properties:
+            components:
+              type: array
+              description: Ordered tree of groups and ungrouped components, sorted by their top-level position.
+              items:
+                $ref: "#/components/schemas/StatusPageTreeEntry"
+
+    StatusPageTreeEntry:
+      oneOf:
+        - $ref: "#/components/schemas/StatusPageGroupEntry"
+        - $ref: "#/components/schemas/StatusPageComponentEntry"
+      discriminator:
+        propertyName: type
+        mapping:
+          group: "#/components/schemas/StatusPageGroupEntry"
+          component: "#/components/schemas/StatusPageComponentEntry"
+
+    StatusPageGroupEntry:
+      type: object
+      required: [type, id, name, position, components, inserted_at, updated_at]
+      properties:
+        type:
+          type: string
+          enum: [group]
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        position:
+          type: integer
+        components:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusPageComponentEntry"
+        inserted_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    StatusPageComponentEntry:
+      type: object
+      required: [type, id, name, position, monitors, inserted_at, updated_at]
+      properties:
+        type:
+          type: string
+          enum: [component]
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        position:
+          type: integer
+        monitors:
+          type: array
+          items:
+            type: object
+            required: [monitor_id, down_status]
+            properties:
+              monitor_id:
+                type: string
+                format: uuid
+              down_status:
+                type: string
+        inserted_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    StatusPageStructureEntry:
+      oneOf:
+        - $ref: "#/components/schemas/StatusPageStructureGroupEntry"
+        - $ref: "#/components/schemas/StatusPageStructureComponentEntry"
+      discriminator:
+        propertyName: type
+        mapping:
+          group: "#/components/schemas/StatusPageStructureGroupEntry"
+          component: "#/components/schemas/StatusPageStructureComponentEntry"
+
+    StatusPageStructureGroupEntry:
+      type: object
+      required: [type, name, components]
+      properties:
+        type:
+          type: string
+          enum: [group]
+        id:
+          type: string
+          format: uuid
+          description: Existing group ID. Omit to create a new group.
+        name:
+          type: string
+        components:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusPageStructureComponentEntry"
+
+    StatusPageStructureComponentEntry:
+      type: object
+      required: [type, name]
+      properties:
+        type:
+          type: string
+          enum: [component]
+        id:
+          type: string
+          format: uuid
+          description: Existing component ID. Omit to create a new component.
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        monitors:
+          type: array
+          items:
+            type: object
+            required: [monitor_id]
+            properties:
+              monitor_id:
+                type: string
+                format: uuid
+              down_status:
+                type: string
+                description: Defaults to "major_outage".
 
     StatusPageInput:
       type: object
@@ -1267,17 +1527,6 @@ components:
           type: boolean
         subscribers_enabled:
           type: boolean
-
-    StatusPageComponentSummary:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        position:
-          type: integer
 
     Component:
       type: object
@@ -1336,6 +1585,32 @@ components:
                 format: uuid
               down_status:
                 type: string
+
+    ComponentGroup:
+      type: object
+      required: [id, name, position, inserted_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        position:
+          type: integer
+        inserted_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ComponentGroupInput:
+      type: object
+      properties:
+        name:
+          type: string
+        position:
+          type: integer
 
     DisruptionSummary:
       type: object
