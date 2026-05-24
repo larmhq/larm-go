@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - TBD
+
+Status pages now expose their groups and components as one ordered tree.
+This is a breaking shape change for `StatusPage` and removes the separate
+list endpoints for children.
+
+### Added
+
+- `ReplaceStatusPageStructure` — atomic write of a status page's full tree.
+- `CreateComponentGroup` / `GetComponentGroup` / `UpdateComponentGroup` / `DeleteComponentGroup`.
+
+### Changed
+
+- `StatusPage.Components` is now a polymorphic tree (`[]StatusPageTreeEntry` discriminated by `type`), with groups containing their components inline. `ListStatusPages` returns the new lighter `StatusPageSummary` (no tree).
+
+### Removed
+
+- `ListComponents`, `ListComponentGroups`. Fetch the parent status page instead.
+
 ## [0.1.0] - TBD
 
 ### Added

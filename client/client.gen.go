@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -223,6 +224,66 @@ func (e MonitorStateEnum) Valid() bool {
 	}
 }
 
+// Defines values for StatusPageComponentEntryType.
+const (
+	StatusPageComponentEntryTypeComponent StatusPageComponentEntryType = "component"
+)
+
+// Valid indicates whether the value is a known member of the StatusPageComponentEntryType enum.
+func (e StatusPageComponentEntryType) Valid() bool {
+	switch e {
+	case StatusPageComponentEntryTypeComponent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StatusPageGroupEntryType.
+const (
+	StatusPageGroupEntryTypeGroup StatusPageGroupEntryType = "group"
+)
+
+// Valid indicates whether the value is a known member of the StatusPageGroupEntryType enum.
+func (e StatusPageGroupEntryType) Valid() bool {
+	switch e {
+	case StatusPageGroupEntryTypeGroup:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StatusPageStructureComponentEntryType.
+const (
+	StatusPageStructureComponentEntryTypeComponent StatusPageStructureComponentEntryType = "component"
+)
+
+// Valid indicates whether the value is a known member of the StatusPageStructureComponentEntryType enum.
+func (e StatusPageStructureComponentEntryType) Valid() bool {
+	switch e {
+	case StatusPageStructureComponentEntryTypeComponent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StatusPageStructureGroupEntryType.
+const (
+	StatusPageStructureGroupEntryTypeGroup StatusPageStructureGroupEntryType = "group"
+)
+
+// Valid indicates whether the value is a known member of the StatusPageStructureGroupEntryType enum.
+func (e StatusPageStructureGroupEntryType) Valid() bool {
+	switch e {
+	case StatusPageStructureGroupEntryTypeGroup:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StatusPageTheme.
 const (
 	Dark   StatusPageTheme = "dark"
@@ -310,6 +371,21 @@ type Component struct {
 	Name      string    `json:"name"`
 	Position  int       `json:"position"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ComponentGroup defines model for ComponentGroup.
+type ComponentGroup struct {
+	Id         openapi_types.UUID `json:"id"`
+	InsertedAt time.Time          `json:"inserted_at"`
+	Name       string             `json:"name"`
+	Position   int                `json:"position"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+}
+
+// ComponentGroupInput defines model for ComponentGroupInput.
+type ComponentGroupInput struct {
+	Name     *string `json:"name,omitempty"`
+	Position *int    `json:"position,omitempty"`
 }
 
 // ComponentInput defines model for ComponentInput.
@@ -481,9 +557,13 @@ type MonitorInput struct {
 
 // MonitorResponseTimes defines model for MonitorResponseTimes.
 type MonitorResponseTimes struct {
-	// ByLocation P95 response time per probe location
+	// ByLocation P95 response time per region
 	ByLocation *[]struct {
-		Checks   *int     `json:"checks,omitempty"`
+		Checks *int `json:"checks,omitempty"`
+
+		// Location The probe's geographic region, e.g. `us-east`, `eu-central`.
+		// Probes within the same region (different data centers) are
+		// aggregated into a single entry.
 		Location *string  `json:"location,omitempty"`
 		P95      *float32 `json:"p95,omitempty"`
 	} `json:"by_location,omitempty"`
@@ -513,16 +593,17 @@ type MonitorUptime struct {
 
 // StatusPage defines model for StatusPage.
 type StatusPage struct {
-	Components   *[]StatusPageComponentSummary `json:"components,omitempty"`
-	CustomDomain *string                       `json:"custom_domain,omitempty"`
-	Description  *string                       `json:"description,omitempty"`
-	DomainStatus *DomainStatus                 `json:"domain_status,omitempty"`
-	Enabled      bool                          `json:"enabled"`
-	Id           openapi_types.UUID            `json:"id"`
-	InsertedAt   time.Time                     `json:"inserted_at"`
-	LogoDarkUrl  *string                       `json:"logo_dark_url,omitempty"`
-	LogoLightUrl *string                       `json:"logo_light_url,omitempty"`
-	Name         string                        `json:"name"`
+	// Components Ordered tree of groups and ungrouped components, sorted by their top-level position.
+	Components   []StatusPageTreeEntry `json:"components"`
+	CustomDomain *string               `json:"custom_domain,omitempty"`
+	Description  *string               `json:"description,omitempty"`
+	DomainStatus *DomainStatus         `json:"domain_status,omitempty"`
+	Enabled      bool                  `json:"enabled"`
+	Id           openapi_types.UUID    `json:"id"`
+	InsertedAt   time.Time             `json:"inserted_at"`
+	LogoDarkUrl  *string               `json:"logo_dark_url,omitempty"`
+	LogoLightUrl *string               `json:"logo_light_url,omitempty"`
+	Name         string                `json:"name"`
 
 	// PrimaryColor Hex color code (#RRGGBB)
 	PrimaryColor       *string          `json:"primary_color,omitempty"`
@@ -535,12 +616,37 @@ type StatusPage struct {
 	Url *string `json:"url,omitempty"`
 }
 
-// StatusPageComponentSummary defines model for StatusPageComponentSummary.
-type StatusPageComponentSummary struct {
-	Id       *openapi_types.UUID `json:"id,omitempty"`
-	Name     *string             `json:"name,omitempty"`
-	Position *int                `json:"position,omitempty"`
+// StatusPageComponentEntry defines model for StatusPageComponentEntry.
+type StatusPageComponentEntry struct {
+	Description *string            `json:"description,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	InsertedAt  time.Time          `json:"inserted_at"`
+	Monitors    []struct {
+		DownStatus string             `json:"down_status"`
+		MonitorId  openapi_types.UUID `json:"monitor_id"`
+	} `json:"monitors"`
+	Name      string                       `json:"name"`
+	Position  int                          `json:"position"`
+	Type      StatusPageComponentEntryType `json:"type"`
+	UpdatedAt time.Time                    `json:"updated_at"`
 }
+
+// StatusPageComponentEntryType defines model for StatusPageComponentEntry.Type.
+type StatusPageComponentEntryType string
+
+// StatusPageGroupEntry defines model for StatusPageGroupEntry.
+type StatusPageGroupEntry struct {
+	Components []StatusPageComponentEntry `json:"components"`
+	Id         openapi_types.UUID         `json:"id"`
+	InsertedAt time.Time                  `json:"inserted_at"`
+	Name       string                     `json:"name"`
+	Position   int                        `json:"position"`
+	Type       StatusPageGroupEntryType   `json:"type"`
+	UpdatedAt  time.Time                  `json:"updated_at"`
+}
+
+// StatusPageGroupEntryType defines model for StatusPageGroupEntry.Type.
+type StatusPageGroupEntryType string
 
 // StatusPageInput defines model for StatusPageInput.
 type StatusPageInput struct {
@@ -555,8 +661,72 @@ type StatusPageInput struct {
 	Theme              *StatusPageTheme `json:"theme,omitempty"`
 }
 
+// StatusPageStructureComponentEntry defines model for StatusPageStructureComponentEntry.
+type StatusPageStructureComponentEntry struct {
+	Description *string `json:"description,omitempty"`
+
+	// Id Existing component ID. Omit to create a new component.
+	Id       *openapi_types.UUID `json:"id,omitempty"`
+	Monitors *[]struct {
+		// DownStatus Defaults to "major_outage".
+		DownStatus *string            `json:"down_status,omitempty"`
+		MonitorId  openapi_types.UUID `json:"monitor_id"`
+	} `json:"monitors,omitempty"`
+	Name string                                `json:"name"`
+	Type StatusPageStructureComponentEntryType `json:"type"`
+}
+
+// StatusPageStructureComponentEntryType defines model for StatusPageStructureComponentEntry.Type.
+type StatusPageStructureComponentEntryType string
+
+// StatusPageStructureEntry defines model for StatusPageStructureEntry.
+type StatusPageStructureEntry struct {
+	union json.RawMessage
+}
+
+// StatusPageStructureGroupEntry defines model for StatusPageStructureGroupEntry.
+type StatusPageStructureGroupEntry struct {
+	Components []StatusPageStructureComponentEntry `json:"components"`
+
+	// Id Existing group ID. Omit to create a new group.
+	Id   *openapi_types.UUID               `json:"id,omitempty"`
+	Name string                            `json:"name"`
+	Type StatusPageStructureGroupEntryType `json:"type"`
+}
+
+// StatusPageStructureGroupEntryType defines model for StatusPageStructureGroupEntry.Type.
+type StatusPageStructureGroupEntryType string
+
+// StatusPageSummary defines model for StatusPageSummary.
+type StatusPageSummary struct {
+	CustomDomain *string            `json:"custom_domain,omitempty"`
+	Description  *string            `json:"description,omitempty"`
+	DomainStatus *DomainStatus      `json:"domain_status,omitempty"`
+	Enabled      bool               `json:"enabled"`
+	Id           openapi_types.UUID `json:"id"`
+	InsertedAt   time.Time          `json:"inserted_at"`
+	LogoDarkUrl  *string            `json:"logo_dark_url,omitempty"`
+	LogoLightUrl *string            `json:"logo_light_url,omitempty"`
+	Name         string             `json:"name"`
+
+	// PrimaryColor Hex color code (#RRGGBB)
+	PrimaryColor       *string          `json:"primary_color,omitempty"`
+	Slug               string           `json:"slug"`
+	SubscribersEnabled *bool            `json:"subscribers_enabled,omitempty"`
+	Theme              *StatusPageTheme `json:"theme,omitempty"`
+	UpdatedAt          time.Time        `json:"updated_at"`
+
+	// Url Computed public URL
+	Url *string `json:"url,omitempty"`
+}
+
 // StatusPageTheme defines model for StatusPageTheme.
 type StatusPageTheme string
+
+// StatusPageTreeEntry defines model for StatusPageTreeEntry.
+type StatusPageTreeEntry struct {
+	union json.RawMessage
+}
 
 // ValidationError defines model for ValidationError.
 type ValidationError struct {
@@ -636,6 +806,11 @@ type GetMonitorUptimeParams struct {
 	Range *string `form:"range,omitempty" json:"range,omitempty"`
 }
 
+// ReplaceStatusPageStructureJSONBody defines parameters for ReplaceStatusPageStructure.
+type ReplaceStatusPageStructureJSONBody struct {
+	Components []StatusPageStructureEntry `json:"components"`
+}
+
 // CreateAlertChannelJSONRequestBody defines body for CreateAlertChannel for application/json ContentType.
 type CreateAlertChannelJSONRequestBody = AlertChannelInput
 
@@ -660,6 +835,15 @@ type CreateStatusPageJSONRequestBody = StatusPageInput
 // UpdateStatusPageJSONRequestBody defines body for UpdateStatusPage for application/json ContentType.
 type UpdateStatusPageJSONRequestBody = StatusPageInput
 
+// ReplaceStatusPageStructureJSONRequestBody defines body for ReplaceStatusPageStructure for application/json ContentType.
+type ReplaceStatusPageStructureJSONRequestBody ReplaceStatusPageStructureJSONBody
+
+// CreateComponentGroupJSONRequestBody defines body for CreateComponentGroup for application/json ContentType.
+type CreateComponentGroupJSONRequestBody = ComponentGroupInput
+
+// UpdateComponentGroupJSONRequestBody defines body for UpdateComponentGroup for application/json ContentType.
+type UpdateComponentGroupJSONRequestBody = ComponentGroupInput
+
 // CreateComponentJSONRequestBody defines body for CreateComponent for application/json ContentType.
 type CreateComponentJSONRequestBody = ComponentInput
 
@@ -671,6 +855,184 @@ type CreateWebhookJSONRequestBody = WebhookSubscriptionInput
 
 // UpdateWebhookJSONRequestBody defines body for UpdateWebhook for application/json ContentType.
 type UpdateWebhookJSONRequestBody = WebhookSubscriptionInput
+
+// AsStatusPageStructureGroupEntry returns the union data inside the StatusPageStructureEntry as a StatusPageStructureGroupEntry
+func (t StatusPageStructureEntry) AsStatusPageStructureGroupEntry() (StatusPageStructureGroupEntry, error) {
+	var body StatusPageStructureGroupEntry
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStatusPageStructureGroupEntry overwrites any union data inside the StatusPageStructureEntry as the provided StatusPageStructureGroupEntry
+func (t *StatusPageStructureEntry) FromStatusPageStructureGroupEntry(v StatusPageStructureGroupEntry) error {
+	v.Type = "group"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStatusPageStructureGroupEntry performs a merge with any union data inside the StatusPageStructureEntry, using the provided StatusPageStructureGroupEntry
+func (t *StatusPageStructureEntry) MergeStatusPageStructureGroupEntry(v StatusPageStructureGroupEntry) error {
+	v.Type = "group"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsStatusPageStructureComponentEntry returns the union data inside the StatusPageStructureEntry as a StatusPageStructureComponentEntry
+func (t StatusPageStructureEntry) AsStatusPageStructureComponentEntry() (StatusPageStructureComponentEntry, error) {
+	var body StatusPageStructureComponentEntry
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStatusPageStructureComponentEntry overwrites any union data inside the StatusPageStructureEntry as the provided StatusPageStructureComponentEntry
+func (t *StatusPageStructureEntry) FromStatusPageStructureComponentEntry(v StatusPageStructureComponentEntry) error {
+	v.Type = "component"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStatusPageStructureComponentEntry performs a merge with any union data inside the StatusPageStructureEntry, using the provided StatusPageStructureComponentEntry
+func (t *StatusPageStructureEntry) MergeStatusPageStructureComponentEntry(v StatusPageStructureComponentEntry) error {
+	v.Type = "component"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t StatusPageStructureEntry) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t StatusPageStructureEntry) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "component":
+		return t.AsStatusPageStructureComponentEntry()
+	case "group":
+		return t.AsStatusPageStructureGroupEntry()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t StatusPageStructureEntry) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *StatusPageStructureEntry) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsStatusPageGroupEntry returns the union data inside the StatusPageTreeEntry as a StatusPageGroupEntry
+func (t StatusPageTreeEntry) AsStatusPageGroupEntry() (StatusPageGroupEntry, error) {
+	var body StatusPageGroupEntry
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStatusPageGroupEntry overwrites any union data inside the StatusPageTreeEntry as the provided StatusPageGroupEntry
+func (t *StatusPageTreeEntry) FromStatusPageGroupEntry(v StatusPageGroupEntry) error {
+	v.Type = "group"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStatusPageGroupEntry performs a merge with any union data inside the StatusPageTreeEntry, using the provided StatusPageGroupEntry
+func (t *StatusPageTreeEntry) MergeStatusPageGroupEntry(v StatusPageGroupEntry) error {
+	v.Type = "group"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsStatusPageComponentEntry returns the union data inside the StatusPageTreeEntry as a StatusPageComponentEntry
+func (t StatusPageTreeEntry) AsStatusPageComponentEntry() (StatusPageComponentEntry, error) {
+	var body StatusPageComponentEntry
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStatusPageComponentEntry overwrites any union data inside the StatusPageTreeEntry as the provided StatusPageComponentEntry
+func (t *StatusPageTreeEntry) FromStatusPageComponentEntry(v StatusPageComponentEntry) error {
+	v.Type = "component"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStatusPageComponentEntry performs a merge with any union data inside the StatusPageTreeEntry, using the provided StatusPageComponentEntry
+func (t *StatusPageTreeEntry) MergeStatusPageComponentEntry(v StatusPageComponentEntry) error {
+	v.Type = "component"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t StatusPageTreeEntry) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t StatusPageTreeEntry) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "component":
+		return t.AsStatusPageComponentEntry()
+	case "group":
+		return t.AsStatusPageGroupEntry()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t StatusPageTreeEntry) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *StatusPageTreeEntry) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -830,8 +1192,26 @@ type ClientInterface interface {
 
 	UpdateStatusPage(ctx context.Context, id Id, body UpdateStatusPageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListComponents request
-	ListComponents(ctx context.Context, statusPageId StatusPageId, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ReplaceStatusPageStructureWithBody request with any body
+	ReplaceStatusPageStructureWithBody(ctx context.Context, id Id, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ReplaceStatusPageStructure(ctx context.Context, id Id, body ReplaceStatusPageStructureJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateComponentGroupWithBody request with any body
+	CreateComponentGroupWithBody(ctx context.Context, statusPageId StatusPageId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateComponentGroup(ctx context.Context, statusPageId StatusPageId, body CreateComponentGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteComponentGroup request
+	DeleteComponentGroup(ctx context.Context, statusPageId StatusPageId, id Id, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetComponentGroup request
+	GetComponentGroup(ctx context.Context, statusPageId StatusPageId, id Id, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateComponentGroupWithBody request with any body
+	UpdateComponentGroupWithBody(ctx context.Context, statusPageId StatusPageId, id Id, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateComponentGroup(ctx context.Context, statusPageId StatusPageId, id Id, body UpdateComponentGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateComponentWithBody request with any body
 	CreateComponentWithBody(ctx context.Context, statusPageId StatusPageId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1241,8 +1621,92 @@ func (c *Client) UpdateStatusPage(ctx context.Context, id Id, body UpdateStatusP
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListComponents(ctx context.Context, statusPageId StatusPageId, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListComponentsRequest(c.Server, statusPageId)
+func (c *Client) ReplaceStatusPageStructureWithBody(ctx context.Context, id Id, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceStatusPageStructureRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ReplaceStatusPageStructure(ctx context.Context, id Id, body ReplaceStatusPageStructureJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplaceStatusPageStructureRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateComponentGroupWithBody(ctx context.Context, statusPageId StatusPageId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateComponentGroupRequestWithBody(c.Server, statusPageId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateComponentGroup(ctx context.Context, statusPageId StatusPageId, body CreateComponentGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateComponentGroupRequest(c.Server, statusPageId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteComponentGroup(ctx context.Context, statusPageId StatusPageId, id Id, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteComponentGroupRequest(c.Server, statusPageId, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetComponentGroup(ctx context.Context, statusPageId StatusPageId, id Id, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetComponentGroupRequest(c.Server, statusPageId, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateComponentGroupWithBody(ctx context.Context, statusPageId StatusPageId, id Id, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateComponentGroupRequestWithBody(c.Server, statusPageId, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateComponentGroup(ctx context.Context, statusPageId StatusPageId, id Id, body UpdateComponentGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateComponentGroupRequest(c.Server, statusPageId, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2305,8 +2769,66 @@ func NewUpdateStatusPageRequestWithBody(server string, id Id, contentType string
 	return req, nil
 }
 
-// NewListComponentsRequest generates requests for ListComponents
-func NewListComponentsRequest(server string, statusPageId StatusPageId) (*http.Request, error) {
+// NewReplaceStatusPageStructureRequest calls the generic ReplaceStatusPageStructure builder with application/json body
+func NewReplaceStatusPageStructureRequest(server string, id Id, body ReplaceStatusPageStructureJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReplaceStatusPageStructureRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewReplaceStatusPageStructureRequestWithBody generates requests for ReplaceStatusPageStructure with any type of body
+func NewReplaceStatusPageStructureRequestWithBody(server string, id Id, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/status-pages/%s/structure", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCreateComponentGroupRequest calls the generic CreateComponentGroup builder with application/json body
+func NewCreateComponentGroupRequest(server string, statusPageId StatusPageId, body CreateComponentGroupJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateComponentGroupRequestWithBody(server, statusPageId, "application/json", bodyReader)
+}
+
+// NewCreateComponentGroupRequestWithBody generates requests for CreateComponentGroup with any type of body
+func NewCreateComponentGroupRequestWithBody(server string, statusPageId StatusPageId, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2321,7 +2843,91 @@ func NewListComponentsRequest(server string, statusPageId StatusPageId) (*http.R
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/status-pages/%s/components", pathParam0)
+	operationPath := fmt.Sprintf("/status-pages/%s/component-groups", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteComponentGroupRequest generates requests for DeleteComponentGroup
+func NewDeleteComponentGroupRequest(server string, statusPageId StatusPageId, id Id) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "status_page_id", statusPageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/status-pages/%s/component-groups/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetComponentGroupRequest generates requests for GetComponentGroup
+func NewGetComponentGroupRequest(server string, statusPageId StatusPageId, id Id) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "status_page_id", statusPageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/status-pages/%s/component-groups/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2335,6 +2941,60 @@ func NewListComponentsRequest(server string, statusPageId StatusPageId) (*http.R
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewUpdateComponentGroupRequest calls the generic UpdateComponentGroup builder with application/json body
+func NewUpdateComponentGroupRequest(server string, statusPageId StatusPageId, id Id, body UpdateComponentGroupJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateComponentGroupRequestWithBody(server, statusPageId, id, "application/json", bodyReader)
+}
+
+// NewUpdateComponentGroupRequestWithBody generates requests for UpdateComponentGroup with any type of body
+func NewUpdateComponentGroupRequestWithBody(server string, statusPageId StatusPageId, id Id, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "status_page_id", statusPageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/status-pages/%s/component-groups/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -2832,8 +3492,26 @@ type ClientWithResponsesInterface interface {
 
 	UpdateStatusPageWithResponse(ctx context.Context, id Id, body UpdateStatusPageJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateStatusPageResponse, error)
 
-	// ListComponentsWithResponse request
-	ListComponentsWithResponse(ctx context.Context, statusPageId StatusPageId, reqEditors ...RequestEditorFn) (*ListComponentsResponse, error)
+	// ReplaceStatusPageStructureWithBodyWithResponse request with any body
+	ReplaceStatusPageStructureWithBodyWithResponse(ctx context.Context, id Id, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceStatusPageStructureResponse, error)
+
+	ReplaceStatusPageStructureWithResponse(ctx context.Context, id Id, body ReplaceStatusPageStructureJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceStatusPageStructureResponse, error)
+
+	// CreateComponentGroupWithBodyWithResponse request with any body
+	CreateComponentGroupWithBodyWithResponse(ctx context.Context, statusPageId StatusPageId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateComponentGroupResponse, error)
+
+	CreateComponentGroupWithResponse(ctx context.Context, statusPageId StatusPageId, body CreateComponentGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateComponentGroupResponse, error)
+
+	// DeleteComponentGroupWithResponse request
+	DeleteComponentGroupWithResponse(ctx context.Context, statusPageId StatusPageId, id Id, reqEditors ...RequestEditorFn) (*DeleteComponentGroupResponse, error)
+
+	// GetComponentGroupWithResponse request
+	GetComponentGroupWithResponse(ctx context.Context, statusPageId StatusPageId, id Id, reqEditors ...RequestEditorFn) (*GetComponentGroupResponse, error)
+
+	// UpdateComponentGroupWithBodyWithResponse request with any body
+	UpdateComponentGroupWithBodyWithResponse(ctx context.Context, statusPageId StatusPageId, id Id, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentGroupResponse, error)
+
+	UpdateComponentGroupWithResponse(ctx context.Context, statusPageId StatusPageId, id Id, body UpdateComponentGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateComponentGroupResponse, error)
 
 	// CreateComponentWithBodyWithResponse request with any body
 	CreateComponentWithBodyWithResponse(ctx context.Context, statusPageId StatusPageId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateComponentResponse, error)
@@ -3483,7 +4161,7 @@ type ListStatusPagesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *struct {
-		Data []StatusPage `json:"data"`
+		Data []StatusPageSummary `json:"data"`
 	}
 	JSON401 *Unauthorized
 }
@@ -3647,18 +4325,19 @@ func (r UpdateStatusPageResponse) ContentType() string {
 	return ""
 }
 
-type ListComponentsResponse struct {
+type ReplaceStatusPageStructureResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *struct {
-		Data []Component `json:"data"`
+		Data StatusPage `json:"data"`
 	}
 	JSON401 *Unauthorized
 	JSON404 *NotFound
+	JSON422 *ValidationError
 }
 
 // Status returns HTTPResponse.Status
-func (r ListComponentsResponse) Status() string {
+func (r ReplaceStatusPageStructureResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3666,7 +4345,7 @@ func (r ListComponentsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListComponentsResponse) StatusCode() int {
+func (r ReplaceStatusPageStructureResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -3674,7 +4353,142 @@ func (r ListComponentsResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r ListComponentsResponse) ContentType() string {
+func (r ReplaceStatusPageStructureResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateComponentGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *struct {
+		Data ComponentGroup `json:"data"`
+	}
+	JSON401 *Unauthorized
+	JSON404 *NotFound
+	JSON422 *ValidationError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateComponentGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateComponentGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateComponentGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteComponentGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteComponentGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteComponentGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteComponentGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetComponentGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Data ComponentGroup `json:"data"`
+	}
+	JSON401 *Unauthorized
+	JSON404 *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r GetComponentGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetComponentGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetComponentGroupResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateComponentGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Data ComponentGroup `json:"data"`
+	}
+	JSON401 *Unauthorized
+	JSON404 *NotFound
+	JSON422 *ValidationError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateComponentGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateComponentGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateComponentGroupResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -4255,13 +5069,73 @@ func (c *ClientWithResponses) UpdateStatusPageWithResponse(ctx context.Context, 
 	return ParseUpdateStatusPageResponse(rsp)
 }
 
-// ListComponentsWithResponse request returning *ListComponentsResponse
-func (c *ClientWithResponses) ListComponentsWithResponse(ctx context.Context, statusPageId StatusPageId, reqEditors ...RequestEditorFn) (*ListComponentsResponse, error) {
-	rsp, err := c.ListComponents(ctx, statusPageId, reqEditors...)
+// ReplaceStatusPageStructureWithBodyWithResponse request with arbitrary body returning *ReplaceStatusPageStructureResponse
+func (c *ClientWithResponses) ReplaceStatusPageStructureWithBodyWithResponse(ctx context.Context, id Id, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplaceStatusPageStructureResponse, error) {
+	rsp, err := c.ReplaceStatusPageStructureWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListComponentsResponse(rsp)
+	return ParseReplaceStatusPageStructureResponse(rsp)
+}
+
+func (c *ClientWithResponses) ReplaceStatusPageStructureWithResponse(ctx context.Context, id Id, body ReplaceStatusPageStructureJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplaceStatusPageStructureResponse, error) {
+	rsp, err := c.ReplaceStatusPageStructure(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplaceStatusPageStructureResponse(rsp)
+}
+
+// CreateComponentGroupWithBodyWithResponse request with arbitrary body returning *CreateComponentGroupResponse
+func (c *ClientWithResponses) CreateComponentGroupWithBodyWithResponse(ctx context.Context, statusPageId StatusPageId, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateComponentGroupResponse, error) {
+	rsp, err := c.CreateComponentGroupWithBody(ctx, statusPageId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateComponentGroupResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateComponentGroupWithResponse(ctx context.Context, statusPageId StatusPageId, body CreateComponentGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateComponentGroupResponse, error) {
+	rsp, err := c.CreateComponentGroup(ctx, statusPageId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateComponentGroupResponse(rsp)
+}
+
+// DeleteComponentGroupWithResponse request returning *DeleteComponentGroupResponse
+func (c *ClientWithResponses) DeleteComponentGroupWithResponse(ctx context.Context, statusPageId StatusPageId, id Id, reqEditors ...RequestEditorFn) (*DeleteComponentGroupResponse, error) {
+	rsp, err := c.DeleteComponentGroup(ctx, statusPageId, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteComponentGroupResponse(rsp)
+}
+
+// GetComponentGroupWithResponse request returning *GetComponentGroupResponse
+func (c *ClientWithResponses) GetComponentGroupWithResponse(ctx context.Context, statusPageId StatusPageId, id Id, reqEditors ...RequestEditorFn) (*GetComponentGroupResponse, error) {
+	rsp, err := c.GetComponentGroup(ctx, statusPageId, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetComponentGroupResponse(rsp)
+}
+
+// UpdateComponentGroupWithBodyWithResponse request with arbitrary body returning *UpdateComponentGroupResponse
+func (c *ClientWithResponses) UpdateComponentGroupWithBodyWithResponse(ctx context.Context, statusPageId StatusPageId, id Id, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentGroupResponse, error) {
+	rsp, err := c.UpdateComponentGroupWithBody(ctx, statusPageId, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateComponentGroupResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateComponentGroupWithResponse(ctx context.Context, statusPageId StatusPageId, id Id, body UpdateComponentGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateComponentGroupResponse, error) {
+	rsp, err := c.UpdateComponentGroup(ctx, statusPageId, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateComponentGroupResponse(rsp)
 }
 
 // CreateComponentWithBodyWithResponse request with arbitrary body returning *CreateComponentResponse
@@ -5145,7 +6019,7 @@ func ParseListStatusPagesResponse(rsp *http.Response) (*ListStatusPagesResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			Data []StatusPage `json:"data"`
+			Data []StatusPageSummary `json:"data"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -5337,15 +6211,15 @@ func ParseUpdateStatusPageResponse(rsp *http.Response) (*UpdateStatusPageRespons
 	return response, nil
 }
 
-// ParseListComponentsResponse parses an HTTP response from a ListComponentsWithResponse call
-func ParseListComponentsResponse(rsp *http.Response) (*ListComponentsResponse, error) {
+// ParseReplaceStatusPageStructureResponse parses an HTTP response from a ReplaceStatusPageStructureWithResponse call
+func ParseReplaceStatusPageStructureResponse(rsp *http.Response) (*ReplaceStatusPageStructureResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListComponentsResponse{
+	response := &ReplaceStatusPageStructureResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5353,7 +6227,7 @@ func ParseListComponentsResponse(rsp *http.Response) (*ListComponentsResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			Data []Component `json:"data"`
+			Data StatusPage `json:"data"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -5373,6 +6247,186 @@ func ParseListComponentsResponse(rsp *http.Response) (*ListComponentsResponse, e
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ValidationError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateComponentGroupResponse parses an HTTP response from a CreateComponentGroupWithResponse call
+func ParseCreateComponentGroupResponse(rsp *http.Response) (*CreateComponentGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateComponentGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data ComponentGroup `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ValidationError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteComponentGroupResponse parses an HTTP response from a DeleteComponentGroupWithResponse call
+func ParseDeleteComponentGroupResponse(rsp *http.Response) (*DeleteComponentGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteComponentGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetComponentGroupResponse parses an HTTP response from a GetComponentGroupWithResponse call
+func ParseGetComponentGroupResponse(rsp *http.Response) (*GetComponentGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetComponentGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ComponentGroup `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateComponentGroupResponse parses an HTTP response from a UpdateComponentGroupWithResponse call
+func ParseUpdateComponentGroupResponse(rsp *http.Response) (*UpdateComponentGroupResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateComponentGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ComponentGroup `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest ValidationError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	}
 
