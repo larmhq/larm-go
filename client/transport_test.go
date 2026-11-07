@@ -176,6 +176,37 @@ func TestRetryOn429(t *testing.T) {
 	}
 }
 
+func TestNoRetryWhenRetryAfterExceedsDeadline(t *testing.T) {
+	t.Parallel()
+	mock := &mockTransport{
+		recipes: []mockResponse{
+			{status: 429, retryAfter: "3600"},
+			{status: 200},
+		},
+	}
+	rt := &RetryTransport{Base: mock, MaxRetries: 3}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.com", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := rt.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer drain(t, resp)
+
+	if resp.StatusCode != 429 {
+		t.Errorf("expected the 429 to be returned, got %d", resp.StatusCode)
+	}
+	if mock.callCount() != 1 {
+		t.Errorf("expected 1 call, got %d", mock.callCount())
+	}
+}
+
 func TestRequestBodyPreservedOnRetry(t *testing.T) {
 	t.Parallel()
 	var bodies []string

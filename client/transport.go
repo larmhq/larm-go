@@ -18,8 +18,10 @@ const defaultMaxRetries = 3
 //
 // It retries on HTTP 429 and 5xx responses with exponential backoff. The
 // Retry-After header is honored on 429 responses (interpreted as seconds; an
-// unparseable value falls back to exponential backoff). Request bodies are
-// buffered so they can be replayed on each attempt.
+// unparseable value falls back to exponential backoff). When the request's
+// context has a deadline that the next wait would pass, the last response is
+// returned without retrying. Request bodies are buffered so they can be
+// replayed on each attempt.
 //
 // If Base is nil, http.DefaultTransport is used.
 //
@@ -67,6 +69,11 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
 			backoff := retryDelay(attempt, resp)
+			// A wait that would outlast the request's deadline can only end in a
+			// timeout. Return the last result instead, so the caller sees why.
+			if deadline, ok := req.Context().Deadline(); ok && time.Until(deadline) < backoff {
+				return resp, err
+			}
 			timer := time.NewTimer(backoff)
 			select {
 			case <-timer.C:
