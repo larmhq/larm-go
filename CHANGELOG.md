@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `APIError.Errors` holds field-level validation errors, and `Error()` includes them. Validation failures previously rendered as a bare `validation_error:` with no detail.
+
 ## [0.2.0]
 
 Status pages now expose their groups and components as one ordered tree.
