@@ -21,6 +21,17 @@ func TestParseAPIError(t *testing.T) {
 	}
 }
 
+func TestParseAPIErrorValidationErrors(t *testing.T) {
+	t.Parallel()
+	body := `{"error":{"type":"validation_error","errors":{"name":["can't be blank"],"config":["is required","must be a map"]}}}`
+	err := ParseAPIError(422, []byte(body))
+
+	want := "validation_error: config: is required, must be a map; name: can't be blank"
+	if got := err.Error(); got != want {
+		t.Errorf("Error() = %q, want %q", got, want)
+	}
+}
+
 func TestParseAPIErrorUnknownBody(t *testing.T) {
 	t.Parallel()
 	err := ParseAPIError(500, []byte("Internal Server Error"))

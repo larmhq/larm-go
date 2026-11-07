@@ -60,7 +60,7 @@ API errors are surfaced as `*client.APIError`:
 ```go
 var apiErr *client.APIError
 if errors.As(err, &apiErr) {
-    fmt.Printf("API returned %d %s: %s\n", apiErr.StatusCode, apiErr.Type, apiErr.Message)
+    fmt.Printf("API returned %d: %s\n", apiErr.StatusCode, apiErr)
 }
 ```
 
