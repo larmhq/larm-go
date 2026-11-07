@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `RetryTransport` no longer waits for a `Retry-After` (or backoff) longer than the time left before the request's deadline. It returns the last response instead, so a rate-limited call fails immediately with the 429 rather than with a client timeout.
+
 ## [0.3.0]
 
 ### Added
